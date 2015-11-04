@@ -8,7 +8,7 @@
 CREATE TABLE subreddit_stats (
     id INTEGER PRIMARY KEY,
     sub TEXT,
-    t_count INTEGER DEFAULT 0;
+    t_count INTEGER DEFAULT 0,
     last_used DATETIME DEFAULT NULL
 );
 
