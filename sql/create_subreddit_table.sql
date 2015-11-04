@@ -15,5 +15,5 @@ CREATE TABLE subreddit_stats (
 CREATE TRIGGER update_subreddit_stats_timestamp AFTER UPDATE ON subreddit_stats
     BEGIN
         UPDATE subreddit_stats
-        SET last_used = datetime('now') WHERE id = new NEW.id;
+        SET last_used = datetime('now') WHERE id = NEW.id;
     END;
