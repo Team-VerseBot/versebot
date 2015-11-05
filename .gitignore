@@ -1,3 +1,4 @@
 *.pyc
 versebot/oauth.ini
 .idea/
+*.sqlite
