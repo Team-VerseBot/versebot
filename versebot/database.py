@@ -5,31 +5,20 @@ database.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
-from config import *
 from regex import find_already_quoted_verses
-from books import get_book_number
-import psycopg2
-import urllib.parse
+import sqlite3
+from config import DATABASE_PATH
 
 _conn = None
 
 
 def connect(logger):
-    """ Connect to PostgreSQL database. The connection information for the
-    database is retrieved via Heroku environment variable."""
+    """ Connect to SQLite database. """
 
     global _conn
-    urllib.parse.uses_netloc.append("postgres")
-    url = urllib.parse.urlparse(DATABASE_URL)
     try:
-        _conn = psycopg2.connect(
-            database = url.path[1:],
-            user = url.username,
-            password = url.password,
-            host = url.hostname,
-            port = url.port)
-        return True
-    except:
+        _conn = sqlite3.connect(DATABASE_PATH)
+    except sqlite3.Error:
         logger.critical("Connection to database failed. Exiting...")
         exit(1)
 
@@ -57,13 +46,14 @@ def update_subreddit_stats(new_subreddits, is_edit_or_delete=False):
         with _conn.cursor() as cur:
             if is_edit_or_delete:
                 cur.execute("UPDATE subreddit_stats SET count = count - %(num)s WHERE sub = '%(subreddit)s';"
-                     "DELETE FROM subreddit_stats WHERE count = 0;" % {"subreddit":subreddit[0], "num":subreddit[1]})
+                            "DELETE FROM subreddit_stats WHERE count = 0;" % {"subreddit": subreddit[0],
+                                                                              "num": subreddit[1]})
             else:
                 # I opted for this instead of upsert because it seemed simpler.
                 cur.execute("UPDATE subreddit_stats SET count = count + %(num)s WHERE sub = '%(subreddit)s';"
-                    "INSERT INTO subreddit_stats (sub, count) SELECT '%(subreddit)s', %(num)s WHERE NOT EXISTS"
-                    "(SELECT 1 FROM subreddit_stats WHERE sub = '%(subreddit)s');" %
-                    {"subreddit":subreddit[0], "num":subreddit[1]})
+                            "INSERT INTO subreddit_stats (sub, count) SELECT '%(subreddit)s', %(num)s WHERE NOT EXISTS"
+                            "(SELECT 1 FROM subreddit_stats WHERE sub = '%(subreddit)s');" %
+                            {"subreddit": subreddit[0], "num": subreddit[1]})
     _conn.commit()
 
 
@@ -84,37 +74,43 @@ def update_translation_stats(translations, is_edit_or_delete=False):
 
 
 def prepare_translation_list_update():
-    """ Prepares the translation_stats table for a translation list update. Timestamp update triggers must be disabled so as to not mess up
-    the actual timestamps. For all translations, available is set to false. The translations that are currently available will later be set
-    to true. """
+    """ Prepares the translation_stats table for a translation list update. The timestamp update trigger must be dropped
+    so as to not mess up the actual timestamps. For all translations, available is set to false. The translations that
+    are currently available will later be set to true. """
 
     with _conn.cursor() as cur:
-        cur.execute("ALTER TABLE translation_stats DISABLE TRIGGER update_translation_stats_timestamp;"
-            "UPDATE translation_stats SET available = FALSE;")
+        cur.execute("DROP TRIGGER update_translation_stats_timestamp;"
+                    "UPDATE translation_stats SET available = FALSE;")
     _conn.commit()
 
 
 def finish_translation_list_update():
-    """ Simply re-enables the timestamp update trigger after the translation list update has completed. """
+    """ Simply adds the timestamp update trigger back in after the translation list update has completed. """
 
     with _conn.cursor() as cur:
-        cur.execute("ALTER TABLE translation_stats ENABLE TRIGGER update_translation_stats_timestamp;")
+        cur.execute("CREATE TRIGGER update_translation_stats_timestamp AFTER UPDATE ON translation_stats"
+                    "BEGIN UPDATE translation_stats"
+                    "SET last_used = datetime('now') WHERE id = NEW.id; END;")
     _conn.commit()
 
 
 def update_translation_list(translations):
-    """ Updates translation_stats table with new translations that have been added. This query will also reset the available column for ALL
-    translations to false, and then reset them to true individually if the translation exists in the local list of translations. This prevents
-    users from trying to use translations within the database that are not officially supported anymore."""
+    """ Updates translation_stats table with new translations that have been added. This query will also reset the
+    available column for ALL translations to false, and then reset them to true individually if the translation exists
+    in the local list of translations. This prevents users from trying to use translations within the database that are
+    not officially supported anymore. """
 
     prepare_translation_list_update()
     for translation in translations:
         with _conn.cursor() as cur:
-            cur.execute("UPDATE translation_stats SET available = TRUE WHERE trans = '%(tran)s'; INSERT INTO translation_stats "
-                "(trans, name, lang, has_ot, has_nt, has_deut, available) SELECT '%(tran)s', '%(tname)s', '%(language)s', %(ot)s, %(nt)s, %(deut)s, "
+            cur.execute(
+                "UPDATE translation_stats SET available = TRUE WHERE trans = '%(tran)s'; INSERT INTO translation_stats "
+                "(trans, name, lang, has_ot, has_nt, has_deut, available)"
+                "SELECT '%(tran)s', '%(tname)s', '%(language)s', %(ot)s, %(nt)s, %(deut)s, "
                 "TRUE WHERE NOT EXISTS (SELECT 1 FROM translation_stats WHERE trans = '%(tran)s');" %
-                {"tran":translation.abbreviation, "tname":translation.name.replace("'", "''"), "language":translation.language, "ot":translation.has_ot,
-                    "nt":translation.has_nt, "deut":translation.has_deut})
+                {"tran": translation.abbreviation, "tname": translation.name.replace("'", "''"),
+                 "language": translation.language, "ot": translation.has_ot,
+                 "nt": translation.has_nt, "deut": translation.has_deut})
     _conn.commit()
     finish_translation_list_update()
 
@@ -123,16 +119,19 @@ def update_user_translation(username, ot_trans, nt_trans, deut_trans):
     """ Updates user_translation table with new custom default translations specified by the user. """
 
     with _conn.cursor() as cur:
-        cur.execute("UPDATE user_translations SET ot_default = '%(ot)s', nt_default = '%(nt)s', deut_default = '%(deut)s', last_used = NOW() WHERE username = '%(name)s';"
-            "INSERT INTO user_translations (username, ot_default, nt_default, deut_default) SELECT '%(name)s', '%(ot)s', '%(nt)s', '%(deut)s'"
+        cur.execute(
+            "UPDATE user_translations"
+            "SET ot_default = '%(ot)s', nt_default = '%(nt)s', deut_default = '%(deut)s', last_used = NOW()"
+            "WHERE username = '%(name)s';"
+            "INSERT INTO user_translations (username, ot_default, nt_default, deut_default)"
+            "SELECT '%(name)s', '%(ot)s', '%(nt)s', '%(deut)s'"
             "WHERE NOT EXISTS (SELECT 1 FROM user_translations WHERE username = '%(name)s');" %
-            {"name":username, "ot":ot_trans, "nt":nt_trans, "deut":deut_trans})
+            {"name": username, "ot": ot_trans, "nt": nt_trans, "deut": deut_trans})
     _conn.commit()
 
 
 def get_user_translation(username, bible_section):
     """ Retrieves the default translation for the user in a certain section of the Bible. """
-    translation = None
 
     if bible_section == "Old Testament":
         section = "ot_default"
@@ -144,18 +143,18 @@ def get_user_translation(username, bible_section):
         cur.execute("SELECT %s FROM user_translations WHERE username = '%s';" % (section, str(username)))
         try:
             translation = cur.fetchone()[0]
-        except (psycopg2.ProgrammingError, TypeError) as e:
+        except sqlite3.Error:
             translation = None
-        cur.execute("UPDATE user_translations SET last_used = NOW() WHERE username = '%s'" % str(username))
+        cur.execute("UPDATE user_translations SET last_used = datetime('now') WHERE username = '%s'" % str(username))
     _conn.commit()
     return translation
 
 
 def clean_user_translations():
-    """ Removes user translation entries that haven't been used for 90 days or more to save on database space.
-    This function is called approximately every 24 hours due to Heroku automatically restarting apps every 24 hours. """
+    """ Removes user translation entries that haven't been used for 90 days or more to save on database space. """
+
     with _conn.cursor() as cur:
-        cur.execute("DELETE FROM user_translations WHERE last_used < (NOW() - INTERVAL '90 DAYS')")
+        cur.execute("DELETE FROM user_translations WHERE last_used < datetime('now', '-90 days');")
     _conn.commit()
 
 
@@ -164,10 +163,14 @@ def update_subreddit_translation(subreddit, ot_trans, nt_trans, deut_trans):
     moderator of a subreddit. """
 
     with _conn.cursor() as cur:
-        cur.execute("UPDATE subreddit_translations SET ot_default = '%(ot)s', nt_default = '%(nt)s', deut_default = '%(deut)s', created = NOW() WHERE sub = '%(subreddit)s';"
-            "INSERT INTO subreddit_translations (sub, ot_default, nt_default, deut_default) SELECT '%(subreddit)s', '%(ot)s', '%(nt)s', '%(deut)s'"
+        cur.execute(
+            "UPDATE subreddit_translations"
+            "SET ot_default = '%(ot)s', nt_default = '%(nt)s', deut_default = '%(deut)s', created = NOW()"
+            "WHERE sub = '%(subreddit)s';"
+            "INSERT INTO subreddit_translations (sub, ot_default, nt_default, deut_default)"
+            "SELECT '%(subreddit)s', '%(ot)s', '%(nt)s', '%(deut)s'"
             "WHERE NOT EXISTS (SELECT 1 FROM subreddit_translations WHERE sub = '%(subreddit)s');" %
-            {"subreddit":subreddit.lower(), "ot":ot_trans, "nt":nt_trans, "deut":deut_trans})
+            {"subreddit": subreddit.lower(), "ot": ot_trans, "nt": nt_trans, "deut": deut_trans})
     _conn.commit()
 
 
@@ -185,7 +188,7 @@ def get_subreddit_translation(subreddit, bible_section):
         try:
             trans = cur.fetchone()[0]
             return trans
-        except (psycopg2.ProgrammingError, TypeError) as e:
+        except sqlite3.Error:
             return None
 
 
@@ -209,7 +212,7 @@ def is_valid_translation(translation, testament):
                 return True
             else:
                 return False
-        except (psycopg2.ProgrammingError, ValueError, TypeError):
+        except sqlite3.Error:
             return False
 
 
@@ -227,7 +230,7 @@ def decrement_comment_count():
     with _conn.cursor() as cur:
         cur.execute("UPDATE comment_count SET count = count - 1;")
     _conn.commit()
-    
+
 
 def update_db_stats(verse_list):
     """ Iterates through all verses in verse_list and adds them to dicts
