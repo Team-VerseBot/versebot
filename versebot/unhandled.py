@@ -17,6 +17,12 @@ slackon = False
 try:
     from slacky import Slacky
     bot = Slacky(token=environ['SLACK_API'])
+    try:
+        schannel = environ['SLACK_CHANNEL']
+    except KeyError:
+        logging.warn("No SLACK_CHANNEL environment "
+                     "variable set, using #general")
+        schannel = "#general"
     slackon = True
     # The Team Versebot's bot is called St. Gabriel the Archangel, so this
     # message makes sense. Customize it as you see fit for your own bot if you
@@ -28,7 +34,7 @@ except ImportError:
     logging.warn("slacky required for sending messages "
                  "to your slack channel when versebot fails")
     logging.warn("Use: pip3 install slacky")
-except IndexError:
+except KeyError:
     logging.warn("No SLACK_API environment variable set")
 
 
@@ -51,6 +57,6 @@ def unhandledexception(excType, excValue, tracebackobj):
     logging.critical(tracebackinfo.read())
 
     if slackon:
-        bot.chat.post_message("#development", message, as_user=True)
+        bot.chat.post_message(schannel, message, as_user=True)
 
     exit(1)
