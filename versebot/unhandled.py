@@ -21,7 +21,9 @@ def unhandledexception(excType, excValue, tracebackobj):
     # Print the traceback
     traceback.print_tb(tracebackobj, None, tracebackinfo)
     # Print all the variables when the exception happened
-    pprint.pprint(locals(), tracebackinfo)
+    print("\nAll defined variables when the exception happened:\n",
+          file=tracebackinfo)
+    pprint.pprint(tracebackobj.tb_frame.f_globals, tracebackinfo)
     tracebackinfo.seek(0)
 
     # Send the gathered information into the logs
