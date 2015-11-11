@@ -9,6 +9,27 @@ import logging
 import traceback
 import pprint
 from io import StringIO
+from os import environ
+
+# Send a message to your Slack channel
+# TODO: Support more channels like Telegram or e-mail
+slackon = False
+try:
+    from slacky import Slacky
+    bot = Slacky(token=environ['SLACK_API'])
+    slackon = True
+    # The Team Versebot's bot is called St. Gabriel the Archangel, so this
+    # message makes sense. Customize it as you see fit for your own bot if you
+    # are running your own instance of Versebot.
+    message = ("I am Gabriel. I stand in the presence of God, and I have been "
+               "sent to speak to you and to bring you this good news:"
+               " Versebot is down because an unhandled exception")
+except ImportError:
+    logging.warn("slacky required for sending messages "
+                 "to your slack channel when versebot fails")
+    logging.warn("Use: pip3 install slacky")
+except IndexError:
+    logging.warn("No SLACK_API environment variable set")
 
 
 def unhandledexception(excType, excValue, tracebackobj):
@@ -28,7 +49,8 @@ def unhandledexception(excType, excValue, tracebackobj):
 
     # Send the gathered information into the logs
     logging.critical(tracebackinfo.read())
-    # TODO: Send a message to people in the Team Versebot's Slack channel so
-    # the bot can be restarted soon as possible.
+
+    if slackon:
+        bot.chat.post_message("#development", message, as_user=True)
 
     exit(1)
