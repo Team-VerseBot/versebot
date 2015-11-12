@@ -17,6 +17,7 @@ from webparser import WebParser
 from verse import Verse
 from regex import find_verses, find_default_translations, find_subreddit_in_request
 from response import Response
+import re
 
 class VerseBot:
     """ Main VerseBot class. """
@@ -85,7 +86,7 @@ class VerseBot:
                         verse[1],  # Chapter
                         verse[3],  # Translation
                         message.author,  # User
-                        message.permalink[24:message.permalink.find("/", 24)],  # Subreddit
+                        re.search("/r/(.*?)/", message.permalink).group(0),  # Subreddit
                         verse[2])  # Verse
                     if not response.is_duplicate_verse(v):
                         response.add_verse(v)
@@ -136,7 +137,7 @@ class VerseBot:
                     if str(reply.author) == REDDIT_USERNAME:
                         try:
                             self.log.info("%s has requested a comment edit..." % comment.author)
-                            link = reply.permalink[24:comment.permalink.find("/", 24)]
+                            link = re.search("/r/(.*?)/", message.permalink).group(0)
                             response = Response(message, self.parser, comment_url)
                             for verse in verses:
                                 book_name = books.get_book(verse[0])
@@ -191,7 +192,7 @@ class VerseBot:
                 if str(reply.author) == REDDIT_USERNAME:
                     try:
                         self.log.info("%s has requested a comment deletion..." % comment.author)
-                        link = reply.permalink[24:comment.permalink.find("/", 24)]
+                        re.search("/r/(.*?)/", message.permalink).group(0)
                         database.remove_invalid_statistics(reply.body, link)
                         database.decrement_comment_count()
                         reply.delete()
