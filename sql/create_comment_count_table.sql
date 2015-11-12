@@ -13,7 +13,8 @@ CREATE TABLE comment_count (
 
 INSERT INTO comment_count DEFAULT VALUES;
 
-CREATE TRIGGER update_comment_count_timestamp AFTER UPDATE ON comment_count
+CREATE TRIGGER update_comment_count_timestamp
+AFTER UPDATE OF t_count ON comment_count
     BEGIN
         UPDATE comment_count
         SET last_used = datetime('now') WHERE id = NEW.id;

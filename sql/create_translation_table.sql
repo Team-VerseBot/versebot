@@ -6,7 +6,7 @@
 */
 
 CREATE TABLE translation_stats (
-    id INTEGER,
+    id INTEGER PRIMARY KEY,
     name TEXT,
     trans TEXT,
     lang TEXT,
@@ -18,7 +18,8 @@ CREATE TABLE translation_stats (
     last_used DATETIME DEFAULT NULL
 );
 
-CREATE TRIGGER update_translation_stats_timestamp AFTER UPDATE ON translation_stats
+CREATE TRIGGER update_translation_stats_timestamp
+AFTER UPDATE OF t_count ON translation_stats
     BEGIN
         UPDATE translation_stats
         SET last_used = datetime('now') WHERE id = NEW.id;

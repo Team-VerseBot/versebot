@@ -96,7 +96,8 @@ INSERT INTO book_stats (book) VALUES
 	('Susanna'),
 	('Bel and the Dragon');
 
-CREATE TRIGGER update_book_stats_timestamp AFTER UPDATE ON book_stats
+CREATE TRIGGER update_book_stats_timestamp
+AFTER UPDATE OF t_count ON book_stats
     BEGIN
         UPDATE book_stats
         SET last_used = datetime('now') WHERE id = NEW.id;
