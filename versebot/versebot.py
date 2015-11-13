@@ -86,7 +86,7 @@ class VerseBot:
                         verse[1],  # Chapter
                         verse[3],  # Translation
                         message.author,  # User
-                        re.search("/r/(.*?)/", message.permalink).group(0),  # Subreddit
+                        re.search("/r/(.*?)/", message.permalink).group(1),  # Subreddit
                         verse[2])  # Verse
                     if not response.is_duplicate_verse(v):
                         response.add_verse(v)
@@ -137,7 +137,7 @@ class VerseBot:
                     if str(reply.author) == REDDIT_USERNAME:
                         try:
                             self.log.info("%s has requested a comment edit..." % comment.author)
-                            link = re.search("/r/(.*?)/", message.permalink).group(0)
+                            link = re.search("/r/(.*?)/", message.permalink).group(1)
                             response = Response(message, self.parser, comment_url)
                             for verse in verses:
                                 book_name = books.get_book(verse[0])
@@ -192,7 +192,7 @@ class VerseBot:
                 if str(reply.author) == REDDIT_USERNAME:
                     try:
                         self.log.info("%s has requested a comment deletion..." % comment.author)
-                        re.search("/r/(.*?)/", message.permalink).group(0)
+                        link = re.search("/r/(.*?)/", message.permalink).group(1)
                         database.remove_invalid_statistics(reply.body, link)
                         database.decrement_comment_count()
                         reply.delete()
