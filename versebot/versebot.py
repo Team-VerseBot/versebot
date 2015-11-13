@@ -5,12 +5,14 @@ versebot.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
+import sys
 import praw
 import OAuth2Util
 import database
 import logging
 import books
 import requests
+import unhandled
 from config import *
 from time import sleep
 from webparser import WebParser
@@ -19,7 +21,13 @@ from regex import find_verses, find_default_translations, find_subreddit_in_requ
 from response import Response
 import re
 
+# Extra measure to catch any unhandled exception that may occur while the bot
+# is working
+sys.excepthook = unhandled.unhandledexception
+
+
 class VerseBot:
+
     """ Main VerseBot class. """
 
     def __init__(self, username, password):
