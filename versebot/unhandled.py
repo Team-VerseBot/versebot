@@ -20,8 +20,8 @@ try:
     try:
         schannel = environ['SLACK_CHANNEL']
     except KeyError:
-        logging.warn("No SLACK_CHANNEL environment "
-                     "variable set, using #general")
+        logging.warning("No SLACK_CHANNEL environment "
+                        "variable set, using #general")
         schannel = "#general"
     slackon = True
     # The Team Versebot's bot is called St. Gabriel the Archangel, so this
@@ -31,11 +31,11 @@ try:
                "sent to speak to you and to bring you this good news:"
                " Versebot is down because an unhandled exception")
 except ImportError:
-    logging.warn("slacky required for sending messages "
-                 "to your slack channel when versebot fails")
-    logging.warn("Use: pip3 install slacky")
+    logging.warning("slacky required for sending messages "
+                    "to your slack channel when versebot fails"
+                    " Use: pip3 install slacky")
 except KeyError:
-    logging.warn("No SLACK_API environment variable set")
+    logging.warning("No SLACK_API environment variable set")
 
 
 def unhandledexception(excType, excValue, tracebackobj):
