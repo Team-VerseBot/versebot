@@ -21,7 +21,7 @@ from response import Response
 class VerseBot:
     """ Main VerseBot class. """
 
-    def __init__(self, username, password):
+    def __init__(self):
         """ Initializes a VerseBot object with supplied username and password. It is recommended that
         the username and password are stored in something like an environment variable for security
         reasons. """
@@ -286,6 +286,6 @@ class VerseBot:
                 pass
 
 
-bot = VerseBot(REDDIT_USERNAME, REDDIT_PASSWORD)
+bot = VerseBot()
 if __name__ == "__main__":
     bot.main_loop()
