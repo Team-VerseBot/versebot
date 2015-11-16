@@ -9,7 +9,6 @@ from os import environ
 from logging import INFO
 
 REDDIT_USERNAME = environ["REDDIT_USERNAME"]
-REDDIT_PASSWORD = environ["REDDIT_PASSWORD"]
 DATABASE_PATH = environ["DATABASE_PATH"]
 VERSEBOT_ADMIN = environ["VERSEBOT_ADMIN"]
 LOG_LEVEL = INFO
