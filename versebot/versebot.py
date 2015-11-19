@@ -5,7 +5,6 @@ versebot.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
-import sys
 import praw
 import OAuth2Util
 import database
@@ -20,10 +19,6 @@ from verse import Verse
 from regex import find_verses, find_default_translations, find_subreddit_in_request
 from response import Response
 import re
-
-# Extra measure to catch any unhandled exception that may occur while the bot
-# is working
-sys.excepthook = unhandled.unhandledexception
 
 
 class VerseBot:
@@ -57,6 +52,9 @@ class VerseBot:
         self.log.info("Cleaning old user translation entries...")
         database.clean_user_translations()
         self.log.info("User translation cleaning successful!")
+        # Extra measure to catch any unhandled exception that may occur while
+        # VerseBot is working
+        unhandled.start()
 
     def main_loop(self):
         """ Main inbox searching loop for finding verse quotation requests. """
