@@ -24,18 +24,13 @@ class TestBookRetrieval(unittest.TestCase):
         """ Tests book conversion to standardized book names. """
         self.assertTrue(books.get_book("1 Jn") == "1 John")
         self.assertTrue(books.get_book("ti") == "Titus")
-        self.assertTrue(books.get_book("thisisntabook") == False)
+        self.assertTrue(books.get_book("thisisntabook") is None)
     
     def test_book_number_retrieval(self):
         """ Tests book number retrieval. """
         self.assertTrue(books.get_book_number("Genesis") == 1)
         self.assertTrue(books.get_book_number("Bel and the Dragon") == 82)
-        self.assertTrue(books.get_book_number("thisisntabook") == False)
-        
-    def test_tanakh_name_retrieval(self):
-        """ Tests TaggedTanakh URL book name retrieval. """
-        self.assertTrue(books.get_tanakh_name("Genesis") == "Gen")
-        self.assertTrue(books.get_tanakh_name("2 Chronicles") == "2%20Chron")
+        self.assertTrue(books.get_book_number("thisisntabook") is None)
         
         
 class TestBibleGatewayParsing(unittest.TestCase):
