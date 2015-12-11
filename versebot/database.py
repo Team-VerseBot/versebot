@@ -39,10 +39,10 @@ def update_book_stats(new_books, is_edit_or_delete=False):
     for book in new_books.items():
         if is_edit_or_delete:
             cur.execute("UPDATE book_stats SET t_count = t_count - %d "
-                        "WHERE book = %s" % (book[1], book[0]))
+                        "WHERE book = '%s'" % (book[1], book[0]))
         else:
             cur.execute("UPDATE book_stats SET t_count = t_count + %d "
-                        "WHERE book = %s" % (book[1], book[0]))
+                        "WHERE book = '%s'" % (book[1], book[0]))
     _conn.commit()
 
 
@@ -57,15 +57,15 @@ def update_subreddit_stats(new_subreddits, is_edit_or_delete=False):
     for subreddit in new_subreddits.items():
         if is_edit_or_delete:
             cur.execute("UPDATE subreddit_stats SET t_count = t_count - %d "
-                        "WHERE sub = %s;" % (subreddit[1], subreddit[0]))
+                        "WHERE sub = '%s';" % (subreddit[1], subreddit[0]))
             cur.execute("DELETE FROM subreddit_stats WHERE t_count = 0;")
         else:
             cur.execute("UPDATE subreddit_stats SET t_count = t_count + %d "
-                        "WHERE sub = %s;" % (subreddit[1], subreddit[0]))
+                        "WHERE sub = '%s';" % (subreddit[1], subreddit[0]))
             cur.execute("INSERT INTO subreddit_stats (sub, t_count) "
-                        "SELECT %(subreddit)s, %(num)s WHERE NOT EXISTS "
+                        "SELECT '%(subreddit)s', %(num)s WHERE NOT EXISTS "
                         "(SELECT 1 FROM subreddit_stats "
-                        "WHERE sub = %(subreddit)s);"
+                        "WHERE sub = '%(subreddit)s');"
                         % {"subreddit": subreddit[0], "num": subreddit[1]})
     _conn.commit()
 
@@ -83,10 +83,10 @@ def update_translation_stats(translations, is_edit_or_delete=False):
         count = translation[1]
         if is_edit_or_delete:
             cur.execute("UPDATE translation_stats SET t_count = t_count - %d "
-                        "WHERE trans = %s" % (count, trans))
+                        "WHERE trans = '%s'" % (count, trans))
         else:
             cur.execute("UPDATE translation_stats SET t_count = t_count + %d "
-                        "WHERE trans = %s" % (count, trans))
+                        "WHERE trans = '%s'" % (count, trans))
     _conn.commit()
 
 
@@ -112,12 +112,13 @@ def update_translation_list(translations):
     prepare_translation_list_update()
     for translation in translations:
         cur.execute("UPDATE translation_stats SET available = 1 "
-                    "WHERE trans = %s;" % translation.abbreviation)
+                    "WHERE trans = '%s';" % translation.abbreviation)
         cur.execute("INSERT INTO translation_stats "
                     "(trans, name, lang, has_ot, has_nt, has_deut, available) "
-                    "SELECT %(tran)s, %(tname)s, %(language)s, "
+                    "SELECT '%(tran)s', '%(tname)s', '%(language)s', "
                     "%(ot)s, %(nt)s, %(deut)s, 1 WHERE NOT EXISTS "
-                    "(SELECT 1 FROM translation_stats WHERE trans = %(tran)s);"
+                    "(SELECT 1 FROM translation_stats "
+                    "WHERE trans = '%(tran)s');"
                     % {"tran": translation.abbreviation,
                        "tname": translation.name.replace("'", "''"),
                        "language": translation.language,
@@ -137,15 +138,15 @@ def update_user_translation(username, ot_trans, nt_trans, deut_trans):
     :param username: Username of the user who requested the update
     """
     cur.execute("UPDATE user_translations "
-                "SET ot_default = %s, nt_default = %s, "
-                "deut_default = %s, last_used = datetime('now') "
-                "WHERE username = %s;"
+                "SET ot_default = '%s', nt_default = '%s', "
+                "deut_default = '%s', last_used = datetime('now') "
+                "WHERE username = '%s';"
                 % (ot_trans, nt_trans, deut_trans, username))
     cur.execute("INSERT INTO user_translations "
                 "(username, ot_default, nt_default, deut_default) "
-                "SELECT %(name)s, %(ot)s, %(nt)s, %(deut)s "
+                "SELECT '%(name)s', '%(ot)s', '%(nt)s', '%(deut)s' "
                 "WHERE NOT EXISTS (SELECT 1 FROM user_translations "
-                "WHERE username = %(name)s);"
+                "WHERE username = '%(name)s');"
                 % {"name": username, "ot": ot_trans,
                    "nt": nt_trans, "deut": deut_trans})
     _conn.commit()
@@ -164,14 +165,14 @@ def get_user_translation(username, bible_section):
         section = "nt_default"
     else:
         section = "deut_default"
-    cur.execute("SELECT %s FROM user_translations WHERE username = %s;"
+    cur.execute("SELECT %s FROM user_translations WHERE username = '%s';"
                 % (section, str(username)))
     try:
         translation = cur.fetchone()[0]
     except TypeError:
         translation = None
     cur.execute("UPDATE user_translations SET last_used = datetime('now') "
-                "WHERE username = %s" % str(username))
+                "WHERE username = '%s'" % str(username))
     _conn.commit()
     return translation
 
@@ -196,9 +197,9 @@ def update_subreddit_translation(subreddit, ot_trans, nt_trans, deut_trans):
     """
     cur.execute("INSERT INTO subreddit_translations "
                 "(sub, ot_default, nt_default, deut_default) "
-                "SELECT %(subreddit)s, %(ot)s, %(nt)s, %(deut)s "
+                "SELECT '%(subreddit)s', '%(ot)s', '%(nt)s', '%(deut)s' "
                 "WHERE NOT EXISTS (SELECT 1 FROM subreddit_translations "
-                "WHERE sub = %(subreddit)s);"
+                "WHERE sub = '%(subreddit)s');"
                 % {"subreddit": subreddit.lower(), "ot": ot_trans,
                    "nt": nt_trans, "deut": deut_trans})
     _conn.commit()
@@ -217,7 +218,7 @@ def get_subreddit_translation(subreddit, bible_section):
         section = "nt_default"
     else:
         section = "deut_default"
-    cur.execute("SELECT %s FROM subreddit_translations WHERE sub = %s;"
+    cur.execute("SELECT %s FROM subreddit_translations WHERE sub = '%s';"
                 % (section, subreddit.lower()))
     try:
         trans = cur.fetchone()[0]
@@ -243,7 +244,7 @@ def is_valid_translation(translation, testament):
     else:
         testament = "has_deut"
     cur.execute("SELECT %s, available FROM translation_stats "
-                "WHERE trans = %s;" % (testament, translation))
+                "WHERE trans = '%s';" % (testament, translation))
     try:
         in_testament, is_available = cur.fetchone()
         if in_testament and bool(is_available):
