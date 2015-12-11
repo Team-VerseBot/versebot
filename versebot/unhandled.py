@@ -9,39 +9,53 @@ import logging
 import traceback
 import pprint
 from io import StringIO
-from os import environ
+import sys
+from config import *
 
-# Send a message to your Slack channel
-# TODO: Support more channels like Telegram or e-mail
 slackon = False
-try:
-    from slacky import Slacky
-    bot = Slacky(token=environ['SLACK_API'])
+slackbot = None
+slackchannel = None
+
+
+def start():
+    """ Starts the unhandled exception handler and sets up the Slack bot. """
+
+    global slackon
+    global slackbot
+    global slackchannel
+    # Send a message to your Slack channel
+    # TODO: Support more channels like Telegram or e-mail
     try:
-        schannel = environ['SLACK_CHANNEL']
+        from slacky import Slacky
+        slackbot = Slacky(token=environ["SLACK_API"])
+        try:
+            slackchannel = environ["SLACK_CHANNEL"]
+        except KeyError:
+            logging.warning("No SLACK_CHANNEL environment "
+                            "variable set, using #general")
+            slackchannel = "#general"
+        slackon = True
+        sys.excepthook = unhandledexception
+    except ImportError:
+        logging.warning("slacky required for sending messages "
+                        "to your Slack channel when VerseBot fails")
+        logging.warning("Use: pip3 install slacky")
     except KeyError:
-        logging.warning("No SLACK_CHANNEL environment "
-                        "variable set, using #general")
-        schannel = "#general"
-    slackon = True
-    # The Team Versebot's bot is called St. Gabriel the Archangel, so this
-    # message makes sense. Customize it as you see fit for your own bot if you
-    # are running your own instance of Versebot.
-    message = ("I am Gabriel. I stand in the presence of God, and I have been "
-               "sent to speak to you and to bring you this good news:"
-               " Versebot is down because an unhandled exception")
-except ImportError:
-    logging.warning("slacky required for sending messages "
-                    "to your slack channel when versebot fails"
-                    " Use: pip3 install slacky")
-except KeyError:
-    logging.warning("No SLACK_API environment variable set")
+        logging.warning("No SLACK_API environment variable set")
 
 
-def unhandledexception(excType, excValue, tracebackobj):
+def send_message():
+    """ Send a message to your Slack channel. """
+
+    # TODO: Support more channels like Telegram or e-mail
+    if slackon:
+        slackbot.chat.post_message(slackchannel, SLACK_MESSAGE, as_user=True)
+
+
+def unhandledexception(exctype, excvalue, tracebackobj):
     """
-    @param excType exception type
-    @param excValue exception value
+    @param exctype exception type
+    @param excvalue exception value
     @param tracebackobj traceback object
     """
     tracebackinfo = StringIO()
@@ -56,7 +70,5 @@ def unhandledexception(excType, excValue, tracebackobj):
     # Send the gathered information into the logs
     logging.critical(tracebackinfo.read())
 
-    if slackon:
-        bot.chat.post_message(schannel, message, as_user=True)
-
+    send_message()
     exit(1)

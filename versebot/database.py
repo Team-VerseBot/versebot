@@ -5,31 +5,25 @@ database.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
-from config import *
+import sqlite3
+from config import DATABASE_PATH
 from regex import find_already_quoted_verses
-from books import get_book_number
-import psycopg2
-import urllib.parse
 
 _conn = None
+cur = None
 
 
 def connect(logger):
-    """ Connect to PostgreSQL database. The connection information for the
-    database is retrieved via Heroku environment variable."""
+    """ Connect to SQLite database.
 
+    :param logger: The logger used in the instance of VerseBot
+    """
     global _conn
-    urllib.parse.uses_netloc.append("postgres")
-    url = urllib.parse.urlparse(DATABASE_URL)
+    global cur
     try:
-        _conn = psycopg2.connect(
-            database = url.path[1:],
-            user = url.username,
-            password = url.password,
-            host = url.hostname,
-            port = url.port)
-        return True
-    except:
+        _conn = sqlite3.connect(DATABASE_PATH)
+        cur = _conn.cursor()
+    except sqlite3.Error:
         logger.critical("Connection to database failed. Exiting...")
         exit(1)
 
@@ -37,202 +31,250 @@ def connect(logger):
 def update_book_stats(new_books, is_edit_or_delete=False):
     """ Updates book_stats table with recently quoted books.
     Alternatively, this function is also used to remove book counts
-    that were added by a comment that has been edited/deleted. """
+    that were added by a comment that has been edited/deleted.
 
+    :param is_edit_or_delete: Whether a comment has been edited or deleted
+    :param new_books: Recently quoted books
+    """
     for book in new_books.items():
-        with _conn.cursor() as cur:
-            if is_edit_or_delete:
-                cur.execute("UPDATE book_stats SET count = count - %d WHERE book = '%s'" % (book[1], book[0]))
-            else:
-                cur.execute("UPDATE book_stats SET count = count + %d WHERE book = '%s'" % (book[1], book[0]))
+        if is_edit_or_delete:
+            cur.execute("UPDATE book_stats SET t_count = t_count - %d "
+                        "WHERE book = %s" % (book[1], book[0]))
+        else:
+            cur.execute("UPDATE book_stats SET t_count = t_count + %d "
+                        "WHERE book = %s" % (book[1], book[0]))
     _conn.commit()
 
 
 def update_subreddit_stats(new_subreddits, is_edit_or_delete=False):
-    """ Updates subreddit_stats table with subreddits that have recently used VerseBot.
-    Alternatively, this function is also used to remove subreddit counts that were
-    added by a comment that has been edited/deleted. """
+    """ Updates subreddit_stats table with subreddits that have recently used
+    VerseBot. Alternatively, this function is also used to remove subreddit
+    counts that were added by a comment that has been edited/deleted.
 
+    :param is_edit_or_delete: Whether a comment has been edited or deleted
+    :param new_subreddits: Subreddits that have recently used VerseBot
+    """
     for subreddit in new_subreddits.items():
-        with _conn.cursor() as cur:
-            if is_edit_or_delete:
-                cur.execute("UPDATE subreddit_stats SET count = count - %(num)s WHERE sub = '%(subreddit)s';"
-                     "DELETE FROM subreddit_stats WHERE count = 0;" % {"subreddit":subreddit[0], "num":subreddit[1]})
-            else:
-                # I opted for this instead of upsert because it seemed simpler.
-                cur.execute("UPDATE subreddit_stats SET count = count + %(num)s WHERE sub = '%(subreddit)s';"
-                    "INSERT INTO subreddit_stats (sub, count) SELECT '%(subreddit)s', %(num)s WHERE NOT EXISTS"
-                    "(SELECT 1 FROM subreddit_stats WHERE sub = '%(subreddit)s');" %
-                    {"subreddit":subreddit[0], "num":subreddit[1]})
+        if is_edit_or_delete:
+            cur.execute("UPDATE subreddit_stats SET t_count = t_count - %d "
+                        "WHERE sub = %s;" % (subreddit[1], subreddit[0]))
+            cur.execute("DELETE FROM subreddit_stats WHERE t_count = 0;")
+        else:
+            cur.execute("UPDATE subreddit_stats SET t_count = t_count + %d "
+                        "WHERE sub = %s;" % (subreddit[1], subreddit[0]))
+            cur.execute("INSERT INTO subreddit_stats (sub, t_count) "
+                        "SELECT %(subreddit)s, %(num)s WHERE NOT EXISTS "
+                        "(SELECT 1 FROM subreddit_stats "
+                        "WHERE sub = %(subreddit)s);"
+                        % {"subreddit": subreddit[0], "num": subreddit[1]})
     _conn.commit()
 
 
 def update_translation_stats(translations, is_edit_or_delete=False):
-    """ Updates translation_stats table with recently used translations. Alternatively,
-    this function is also used to remove translation counts that were added by a comment that has been
-    edited/deleted. """
+    """ Updates translation_stats table with recently used translations.
+    Alternatively, this function is also used to remove translation counts
+    that were added by a comment that has been edited/deleted.
 
+    :param is_edit_or_delete: Whether a comment has been edited or deleted
+    :param translations: Recently used translations
+    """
     for translation in translations.items():
         trans = translation[0]
         count = translation[1]
-        with _conn.cursor() as cur:
-            if is_edit_or_delete:
-                cur.execute("UPDATE translation_stats SET count = count - %d WHERE trans = '%s'" % (count, trans))
-            else:
-                cur.execute("UPDATE translation_stats SET count = count + %d WHERE trans = '%s'" % (count, trans))
+        if is_edit_or_delete:
+            cur.execute("UPDATE translation_stats SET t_count = t_count - %d "
+                        "WHERE trans = %s" % (count, trans))
+        else:
+            cur.execute("UPDATE translation_stats SET t_count = t_count + %d "
+                        "WHERE trans = %s" % (count, trans))
     _conn.commit()
 
 
 def prepare_translation_list_update():
-    """ Prepares the translation_stats table for a translation list update. Timestamp update triggers must be disabled so as to not mess up
-    the actual timestamps. For all translations, available is set to false. The translations that are currently available will later be set
-    to true. """
+    """ Prepares the translation_stats table for a translation list update.
+    For all translations, available is set to false. The translations that are
+    currently available will later be set to true. """
 
-    with _conn.cursor() as cur:
-        cur.execute("ALTER TABLE translation_stats DISABLE TRIGGER update_translation_stats_timestamp;"
-            "UPDATE translation_stats SET available = FALSE;")
-    _conn.commit()
-
-
-def finish_translation_list_update():
-    """ Simply re-enables the timestamp update trigger after the translation list update has completed. """
-
-    with _conn.cursor() as cur:
-        cur.execute("ALTER TABLE translation_stats ENABLE TRIGGER update_translation_stats_timestamp;")
+    cur.execute("UPDATE translation_stats SET available = 0;")
     _conn.commit()
 
 
 def update_translation_list(translations):
-    """ Updates translation_stats table with new translations that have been added. This query will also reset the available column for ALL
-    translations to false, and then reset them to true individually if the translation exists in the local list of translations. This prevents
-    users from trying to use translations within the database that are not officially supported anymore."""
+    """ Updates translation_stats table with new translations that have been
+    added. This query will also reset the available column for ALL
+    translations to false, and then reset them to true individually if the
+    translation exists in the local list of translations. This prevents users
+    from trying to use translations within the database that are not
+    officially supported anymore.
 
+    :param translations: Available translations
+    """
     prepare_translation_list_update()
     for translation in translations:
-        with _conn.cursor() as cur:
-            cur.execute("UPDATE translation_stats SET available = TRUE WHERE trans = '%(tran)s'; INSERT INTO translation_stats "
-                "(trans, name, lang, has_ot, has_nt, has_deut, available) SELECT '%(tran)s', '%(tname)s', '%(language)s', %(ot)s, %(nt)s, %(deut)s, "
-                "TRUE WHERE NOT EXISTS (SELECT 1 FROM translation_stats WHERE trans = '%(tran)s');" %
-                {"tran":translation.abbreviation, "tname":translation.name.replace("'", "''"), "language":translation.language, "ot":translation.has_ot,
-                    "nt":translation.has_nt, "deut":translation.has_deut})
+        cur.execute("UPDATE translation_stats SET available = 1 "
+                    "WHERE trans = %s;" % translation.abbreviation)
+        cur.execute("INSERT INTO translation_stats "
+                    "(trans, name, lang, has_ot, has_nt, has_deut, available) "
+                    "SELECT %(tran)s, %(tname)s, %(language)s, "
+                    "%(ot)s, %(nt)s, %(deut)s, 1 WHERE NOT EXISTS "
+                    "(SELECT 1 FROM translation_stats WHERE trans = %(tran)s);"
+                    % {"tran": translation.abbreviation,
+                       "tname": translation.name.replace("'", "''"),
+                       "language": translation.language,
+                       "ot": int(translation.has_ot),
+                       "nt": int(translation.has_nt),
+                       "deut": int(translation.has_deut)})
     _conn.commit()
-    finish_translation_list_update()
 
 
 def update_user_translation(username, ot_trans, nt_trans, deut_trans):
-    """ Updates user_translation table with new custom default translations specified by the user. """
+    """ Updates user_translation table with new custom default translations
+    specified by the user.
 
-    with _conn.cursor() as cur:
-        cur.execute("UPDATE user_translations SET ot_default = '%(ot)s', nt_default = '%(nt)s', deut_default = '%(deut)s', last_used = NOW() WHERE username = '%(name)s';"
-            "INSERT INTO user_translations (username, ot_default, nt_default, deut_default) SELECT '%(name)s', '%(ot)s', '%(nt)s', '%(deut)s'"
-            "WHERE NOT EXISTS (SELECT 1 FROM user_translations WHERE username = '%(name)s');" %
-            {"name":username, "ot":ot_trans, "nt":nt_trans, "deut":deut_trans})
+    :param deut_trans: Requested Deuterocanon translation
+    :param nt_trans: Requested New Testament translation
+    :param ot_trans: Requested Old Testament translation
+    :param username: Username of the user who requested the update
+    """
+    cur.execute("UPDATE user_translations "
+                "SET ot_default = %s, nt_default = %s, "
+                "deut_default = %s, last_used = datetime('now') "
+                "WHERE username = %s;"
+                % (ot_trans, nt_trans, deut_trans, username))
+    cur.execute("INSERT INTO user_translations "
+                "(username, ot_default, nt_default, deut_default) "
+                "SELECT %(name)s, %(ot)s, %(nt)s, %(deut)s "
+                "WHERE NOT EXISTS (SELECT 1 FROM user_translations "
+                "WHERE username = %(name)s);"
+                % {"name": username, "ot": ot_trans,
+                   "nt": nt_trans, "deut": deut_trans})
     _conn.commit()
 
 
 def get_user_translation(username, bible_section):
-    """ Retrieves the default translation for the user in a certain section of the Bible. """
-    translation = None
+    """ Retrieves the default translation for the user in a certain section
+    of the Bible.
 
+    :param bible_section: Old Testament, New Testament, or Deuterocanon
+    :param username: Username of the user who called VerseBot
+    """
     if bible_section == "Old Testament":
         section = "ot_default"
     elif bible_section == "New Testament":
         section = "nt_default"
     else:
         section = "deut_default"
-    with _conn.cursor() as cur:
-        cur.execute("SELECT %s FROM user_translations WHERE username = '%s';" % (section, str(username)))
-        try:
-            translation = cur.fetchone()[0]
-        except (psycopg2.ProgrammingError, TypeError) as e:
-            translation = None
-        cur.execute("UPDATE user_translations SET last_used = NOW() WHERE username = '%s'" % str(username))
+    cur.execute("SELECT %s FROM user_translations WHERE username = %s;"
+                % (section, str(username)))
+    try:
+        translation = cur.fetchone()[0]
+    except TypeError:
+        translation = None
+    cur.execute("UPDATE user_translations SET last_used = datetime('now') "
+                "WHERE username = %s" % str(username))
     _conn.commit()
     return translation
 
 
 def clean_user_translations():
-    """ Removes user translation entries that haven't been used for 90 days or more to save on database space.
-    This function is called approximately every 24 hours due to Heroku automatically restarting apps every 24 hours. """
-    with _conn.cursor() as cur:
-        cur.execute("DELETE FROM user_translations WHERE last_used < (NOW() - INTERVAL '90 DAYS')")
+    """ Removes user translation entries that haven't been used for 90 days
+    or more to save on database space. """
+
+    cur.execute("DELETE FROM user_translations "
+                "WHERE last_used < datetime('now', '-90 days');")
     _conn.commit()
 
 
 def update_subreddit_translation(subreddit, ot_trans, nt_trans, deut_trans):
-    """ Updates subreddit_translation table with new custom default translations specified by a
-    moderator of a subreddit. """
+    """ Updates subreddit_translation table with new custom default
+    translations specified by a moderator of a subreddit.
 
-    with _conn.cursor() as cur:
-        cur.execute("UPDATE subreddit_translations SET ot_default = '%(ot)s', nt_default = '%(nt)s', deut_default = '%(deut)s', created = NOW() WHERE sub = '%(subreddit)s';"
-            "INSERT INTO subreddit_translations (sub, ot_default, nt_default, deut_default) SELECT '%(subreddit)s', '%(ot)s', '%(nt)s', '%(deut)s'"
-            "WHERE NOT EXISTS (SELECT 1 FROM subreddit_translations WHERE sub = '%(subreddit)s');" %
-            {"subreddit":subreddit.lower(), "ot":ot_trans, "nt":nt_trans, "deut":deut_trans})
+    :param deut_trans: Requested Deuterocanon translation
+    :param nt_trans: Requested New Testament translation
+    :param ot_trans: Requested Old Testament translation
+    :param subreddit: Subreddit that requested a translation update
+    """
+    cur.execute("INSERT INTO subreddit_translations "
+                "(sub, ot_default, nt_default, deut_default) "
+                "SELECT %(subreddit)s, %(ot)s, %(nt)s, %(deut)s "
+                "WHERE NOT EXISTS (SELECT 1 FROM subreddit_translations "
+                "WHERE sub = %(subreddit)s);"
+                % {"subreddit": subreddit.lower(), "ot": ot_trans,
+                   "nt": nt_trans, "deut": deut_trans})
     _conn.commit()
 
 
 def get_subreddit_translation(subreddit, bible_section):
-    """ Retrieves the default translation for the subreddit in a certain section of the Bible. """
+    """ Retrieves the default translation for the subreddit in a certain
+    section of the Bible.
 
+    :param bible_section: Old Testament, New Testament, or Deuterocanon
+    :param subreddit: The subreddit that called VerseBot
+    """
     if bible_section == "Old Testament":
         section = "ot_default"
     elif bible_section == "New Testament":
         section = "nt_default"
     else:
         section = "deut_default"
-    with _conn.cursor() as cur:
-        cur.execute("SELECT %s FROM subreddit_translations WHERE sub = '%s';" % (section, subreddit.lower()))
-        try:
-            trans = cur.fetchone()[0]
-            return trans
-        except (psycopg2.ProgrammingError, TypeError) as e:
-            return None
+    cur.execute("SELECT %s FROM subreddit_translations WHERE sub = %s;"
+                % (section, subreddit.lower()))
+    try:
+        trans = cur.fetchone()[0]
+        return trans
+    except TypeError:
+        return None
 
 
 def is_valid_translation(translation, testament):
-    """ Checks the translations table for the supplied translation, and determines whether it is valid
-    for the book that the user wants to quote. If the translation is not valid (either it is not available,
-    or it doesn't contain the book), the translation will either default to the subreddit default
-    or the global default. """
+    """ Checks the translations table for the supplied translation, and
+    determines whether it is valid for the book that the user wants to quote.
+    If the translation is not valid (either it is not available, or it doesn't
+    contain the book), the translation will either default to the subreddit
+    default or the global default.
 
+    :param testament: Old Testament, New Testament, or Deuterocanon
+    :param translation: Requested translation
+    """
     if testament == "Old Testament":
         testament = "has_ot"
     elif testament == "New Testament":
         testament = "has_nt"
     else:
         testament = "has_deut"
-    with _conn.cursor() as cur:
-        cur.execute("SELECT %s, available FROM translation_stats WHERE trans = '%s';" % (testament, translation))
-        try:
-            in_testament, is_available = cur.fetchone()
-            if in_testament and is_available:
-                return True
-            else:
-                return False
-        except (psycopg2.ProgrammingError, ValueError, TypeError):
+    cur.execute("SELECT %s, available FROM translation_stats "
+                "WHERE trans = %s;" % (testament, translation))
+    try:
+        in_testament, is_available = cur.fetchone()
+        if in_testament and bool(is_available):
+            return True
+        else:
             return False
+    except TypeError:
+        return False
 
 
 def increment_comment_count():
-    """ Increments the comment count entry whenever a new comment has been made. """
+    """ Increments the comment count entry whenever a new comment
+    has been made. """
 
-    with _conn.cursor() as cur:
-        cur.execute("UPDATE comment_count SET count = count + 1;")
+    cur.execute("UPDATE comment_count SET t_count = t_count + 1;")
     _conn.commit()
 
 
 def decrement_comment_count():
     """ Decrements the comment count entry whenever a comment is deleted. """
 
-    with _conn.cursor() as cur:
-        cur.execute("UPDATE comment_count SET count = count - 1;")
+    cur.execute("UPDATE comment_count SET t_count = t_count - 1;")
     _conn.commit()
-    
+
 
 def update_db_stats(verse_list):
     """ Iterates through all verses in verse_list and adds them to dicts
-    to pass to the database update functions. """
+    to pass to the database update functions.
 
+    :param verse_list: List of recently quoted verses
+    """
     books = dict()
     translations = dict()
     subreddits = dict()
@@ -263,9 +305,12 @@ def update_db_stats(verse_list):
 
 
 def remove_invalid_statistics(message, subreddit):
-    """ Performs necessary database operations to fix invalid statistics after a user has requested a comment
-    to be edited or deleted. """
+    """ Performs necessary database operations to fix invalid statistics after
+    a user has requested a comment to be edited or deleted.
 
+    :param subreddit: Subreddit where the quotation is located
+    :param message: Message containing verse quotations
+    """
     invalid_verses = find_already_quoted_verses(message)
     invalid_books = dict()
     invalid_trans = dict()

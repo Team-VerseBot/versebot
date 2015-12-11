@@ -5,9 +5,17 @@
   Copyright (c) 2015 Matthieu Grieger (MIT License)
 */
 
-CREATE TABLE comment_count (id SERIAL PRIMARY KEY, count INTEGER DEFAULT 0, last_used TIMESTAMP WITH TIME ZONE DEFAULT NULL);
+CREATE TABLE comment_count (
+    id INTEGER PRIMARY KEY,
+    t_count INTEGER DEFAULT 0,
+    last_used DATETIME DEFAULT NULL
+);
+
 INSERT INTO comment_count DEFAULT VALUES;
 
-CREATE TRIGGER update_comment_count_timestamp BEFORE UPDATE
-  ON comment_count FOR EACH ROW EXECUTE PROCEDURE
-  update_timestamp_column();
+CREATE TRIGGER update_comment_count_timestamp
+AFTER UPDATE OF t_count ON comment_count
+    BEGIN
+        UPDATE comment_count
+        SET last_used = datetime('now') WHERE id = NEW.id;
+    END;

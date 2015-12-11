@@ -5,7 +5,6 @@ versebot.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
-import sys
 import praw
 import OAuth2Util
 import database
@@ -19,17 +18,14 @@ from webparser import WebParser
 from verse import Verse
 from regex import find_verses, find_default_translations, find_subreddit_in_request
 from response import Response
-
-# Extra measure to catch any unhandled exception that may occur while the bot
-# is working
-sys.excepthook = unhandled.unhandledexception
+import re
 
 
 class VerseBot:
 
     """ Main VerseBot class. """
 
-    def __init__(self, username, password):
+    def __init__(self):
         """ Initializes a VerseBot object with supplied username and password. It is recommended that
         the username and password are stored in something like an environment variable for security
         reasons. """
@@ -56,6 +52,9 @@ class VerseBot:
         self.log.info("Cleaning old user translation entries...")
         database.clean_user_translations()
         self.log.info("User translation cleaning successful!")
+        # Extra measure to catch any unhandled exception that may occur while
+        # VerseBot is working
+        unhandled.start()
 
     def main_loop(self):
         """ Main inbox searching loop for finding verse quotation requests. """
@@ -93,7 +92,7 @@ class VerseBot:
                         verse[1],  # Chapter
                         verse[3],  # Translation
                         message.author,  # User
-                        message.permalink[24:message.permalink.find("/", 24)],  # Subreddit
+                        re.search("/r/(.*?)/", message.permalink).group(1),  # Subreddit
                         verse[2])  # Verse
                     if not response.is_duplicate_verse(v):
                         response.add_verse(v)
@@ -144,7 +143,7 @@ class VerseBot:
                     if str(reply.author) == REDDIT_USERNAME:
                         try:
                             self.log.info("%s has requested a comment edit..." % comment.author)
-                            link = reply.permalink[24:comment.permalink.find("/", 24)]
+                            link = re.search("/r/(.*?)/", message.permalink).group(1)
                             response = Response(message, self.parser, comment_url)
                             for verse in verses:
                                 book_name = books.get_book(verse[0])
@@ -199,7 +198,7 @@ class VerseBot:
                 if str(reply.author) == REDDIT_USERNAME:
                     try:
                         self.log.info("%s has requested a comment deletion..." % comment.author)
-                        link = reply.permalink[24:comment.permalink.find("/", 24)]
+                        link = re.search("/r/(.*?)/", message.permalink).group(1)
                         database.remove_invalid_statistics(reply.body, link)
                         database.decrement_comment_count()
                         reply.delete()
@@ -294,6 +293,6 @@ class VerseBot:
                 pass
 
 
-bot = VerseBot(REDDIT_USERNAME, REDDIT_PASSWORD)
+bot = VerseBot()
 if __name__ == "__main__":
     bot.main_loop()

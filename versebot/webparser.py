@@ -30,7 +30,7 @@ class WebParser:
         translations = list()
 
         page = urlopen(url)
-        soup = BeautifulSoup(page.read())
+        soup = BeautifulSoup(page.read(), "html.parser")
 
         trans = soup.findAll("tr", {"class":"language-row"})
         for t in trans:
@@ -85,7 +85,7 @@ class WebParser:
                 % (verse.book.replace(" ", "%20"), verse.chapter, verse.translation))
 
         page = urlopen(url)
-        soup = BeautifulSoup(page.read())
+        soup = BeautifulSoup(page.read(), "html.parser")
 
         verses = soup.findAll("span", {"class":"text"})
 
@@ -125,7 +125,7 @@ class WebParser:
             verse.chapter))
 
         page = urlopen(url)
-        soup = BeautifulSoup(page.read())
+        soup = BeautifulSoup(page.read(), "html.parser")
 
         verses = soup.find("div", {"class":"chap"})
 
