@@ -1,11 +1,13 @@
 """
-VerseBot for reddit
+VerseBot for Reddit
 By Matthieu Grieger
+Continued By Team VerseBot
 response.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
 from config import REDDIT_USERNAME, MAXIMUM_MESSAGE_LENGTH
+
 
 class Response:
     """ Class that holds the properties and methods of a comment
@@ -13,6 +15,7 @@ class Response:
 
     def __init__(self, message, parser, link=None):
         """ Initializes a Response object. """
+
         self.verse_list = list()
         self.message = message
         self.parser = parser
@@ -23,30 +26,42 @@ class Response:
             self.link = self.message.permalink
 
     def add_verse(self, verse):
-        """ Adds a verse to the verse list. """
+        """ Adds a verse to the verse list.
+
+        :param verse: Verse to add to the list of verses
+        """
         self.verse_list.append(verse)
 
     def is_duplicate_verse(self, verse):
         """ Checks the incoming verse against the verse list to make sure
-        it is not a duplicate. """
+        it is not a duplicate.
+
+        :param verse: Verse to check duplicates for
+        """
         for v in self.verse_list:
-            if (v.book == verse.book and v.chapter == verse.chapter and
-                v.verse == verse.verse and v.translation == verse.translation):
+            if (v.book == verse.book and
+                    v.chapter == verse.chapter and
+                    v.verse == verse.verse and
+                    v.translation == verse.translation):
                 return True
         return False
 
     def construct_message(self):
         """ Constructs a message response. """
+
         for verse in self.verse_list:
-            verse.get_contents(self.parser)
+            verse.get_contents()
             if verse.contents is not None:
                 if verse.verse is not None:
                     self.response += ("[**%s %d:%s | %s**](%s)\n\n>"
-                        % (verse.book, verse.chapter, verse.verse, verse.translation_title,
-                            verse.permalink))
+                                      % (verse.book, verse.chapter,
+                                         verse.verse, verse.translation_title,
+                                         verse.permalink))
                 else:
                     self.response += ("[**%s %d | %s**](%s)\n\n>"
-                        % (verse.book, verse.chapter, verse.translation_title, verse.permalink))
+                                      % (verse.book, verse.chapter,
+                                         verse.translation_title,
+                                         verse.permalink))
                 self.response += verse.contents
                 self.response += "\n\n"
         if self.response == "":
@@ -65,43 +80,59 @@ class Response:
 
     def generate_overflow_response(self):
         """ Constructs and generates an overflow comment whenever the comment
-        exceeds the character limit set by MAXIMUM_MESSAGE_LENGTH. Instead of posting
-        the contents of the verse(s) in the comment, it links to webpages that contain
-        the contents of the verse(s). """
+        exceeds the character limit set by MAXIMUM_MESSAGE_LENGTH. Instead of
+        posting the contents of the verse(s) in the comment, it links to
+        webpages that contain the contents of the verse(s). """
 
-        comment = ("The contents of the verse(s) you quoted exceed the %d character limit."
-        " Instead, here are links to the verse(s)!\n\n" % MAXIMUM_MESSAGE_LENGTH)
+        comment = ("The contents of the verse(s) you quoted exceed the %d "
+                   "character limit. Instead, here are links to the "
+                   "verse(s)!\n\n" % MAXIMUM_MESSAGE_LENGTH)
 
         for verse in self.verse_list:
             if verse.translation == "JPS":
                 overflow_link = verse.permalink
             else:
                 if verse.verse is not None:
-                    overflow_link = ("https://www.biblegateway.com/passage/?search=%s+%s:%s&version=%s"
-                        % (verse.book, verse.chapter, verse.verse, verse.translation))
+                    overflow_link = ("https://www.biblegateway.com/passage/"
+                                     "?search=%s+%s:%s&version=%s"
+                                     % (verse.book, verse.chapter, verse.verse,
+                                        verse.translation))
                 else:
                     overflow_link = verse.permalink
 
             if verse.verse is not None:
-                comment += ("- [%s %d:%s (%s)](%s)\n\n" % (verse.book, verse.chapter,
-                    verse.verse, verse.translation, overflow_link))
+                comment += ("- [%s %d:%s (%s)](%s)\n\n"
+                            % (verse.book, verse.chapter, verse.verse,
+                               verse.translation, overflow_link))
             else:
-                comment += ("- [%s %d (%s)](%s)\n\n" % (verse.book, verse.chapter,
-                    verse.translation, overflow_link))
+                comment += ("- [%s %d (%s)](%s)\n\n"
+                            % (verse.book, verse.chapter, verse.translation,
+                               overflow_link))
 
         return comment
 
     def get_comment_footer(self):
         """ Returns the footer for the comment. """
-        return ("\n***\n[^Code](https://github.com/matthieugrieger/versebot) ^|"
-            " ^/r/VerseBot ^| [^Contact ^Dev](/message/compose/?to=mgrieger) ^|"
-            " [^Usage](https://github.com/matthieugrieger/versebot/blob/master/README.md) ^|"
-            " [^Changelog](https://github.com/matthieugrieger/versebot/blob/master/CHANGELOG.md) ^|"
-            " [^Stats](http://matthieugrieger.com/versebot) ^|"
-            " [^Set ^a ^Default ^Translation](http://matthieugrieger.com/versebot#defaults) \n\n"
-            "^All ^texts ^provided ^by [^BibleGateway](http://biblegateway.com) ^and [^Bible ^Hub](http://biblehub.com)^. \n\n"
-            " ^Mistake? ^%(user)s ^can [^edit](/message/compose/?to=%(bot)s&subject=edit+request&message={%(link)s} "
-            "Please+enter+your+revised+verse+quotations+below+in+the+usual+bracketed+syntax.)"
-            " ^or [^delete](/message/compose/?to=%(bot)s&subject=delete+request&message={%(link)s} "
-            "This+action+cannot+be+reversed!) ^this ^comment."
-            % {"user":self.message.author, "bot":REDDIT_USERNAME, "link":self.link})
+
+        return ("\n***\n[^Code](https://github.com/Team-VerseBot/versebot) ^|"
+                " ^/r/VerseBot ^| [^Contact ^Devs](https://github.com/"
+                "Team-VerseBot/versebot/issues) ^|"
+                " [^Usage](https://github.com/Team-VerseBot/versebot/blob/"
+                "master/README.md) ^|"
+                " [^Changelog](https://github.com/Team-VerseBot/versebot/blob/"
+                "master/CHANGELOG.md) ^|"
+                " [^Stats](http://adamgrieger.com/versebot/) ^|"
+                " [^Set ^a ^Default ^Translation](http://adamgrieger.com/"
+                "versebot#defaults) \n\n"
+                "^All ^texts ^provided ^by [^BibleGateway]"
+                "(http://biblegateway.com) ^and [^Bible ^Hub]"
+                "(http://biblehub.com)^. \n\n"
+                " ^Mistake? ^%(user)s ^can [^edit](/message/compose/"
+                "?to=%(bot)s&subject=edit+request&message={%(link)s} "
+                "Please+enter+your+revised+verse+quotations+below+in+the+usual"
+                "+bracketed+syntax.)"
+                " ^or [^delete](/message/compose/?to=%(bot)s&subject=delete"
+                "+request&message={%(link)s} "
+                "This+action+cannot+be+reversed!) ^this ^comment."
+                % {"user": self.message.author, "bot": REDDIT_USERNAME,
+                   "link": self.link})
