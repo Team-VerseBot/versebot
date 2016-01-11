@@ -1,11 +1,13 @@
 """
-VerseBot for reddit
+VerseBot for Reddit
 By Matthieu Grieger
+Continued By Team VerseBot
 database.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
 import sqlite3
+
 from config import DATABASE_PATH
 from regex import find_already_quoted_verses
 
@@ -70,7 +72,7 @@ def update_subreddit_stats(new_subreddits, is_edit_or_delete=False):
     _conn.commit()
 
 
-def update_translation_stats(translations, is_edit_or_delete=False):
+def update_trans_stats(translations, is_edit_or_delete=False):
     """ Updates translation_stats table with recently used translations.
     Alternatively, this function is also used to remove translation counts
     that were added by a comment that has been edited/deleted.
@@ -90,7 +92,7 @@ def update_translation_stats(translations, is_edit_or_delete=False):
     _conn.commit()
 
 
-def prepare_translation_list_update():
+def prepare_trans_list_update():
     """ Prepares the translation_stats table for a translation list update.
     For all translations, available is set to false. The translations that are
     currently available will later be set to true. """
@@ -99,7 +101,7 @@ def prepare_translation_list_update():
     _conn.commit()
 
 
-def update_translation_list(translations):
+def update_trans_list(translations):
     """ Updates translation_stats table with new translations that have been
     added. This query will also reset the available column for ALL
     translations to false, and then reset them to true individually if the
@@ -109,26 +111,24 @@ def update_translation_list(translations):
 
     :param translations: Available translations
     """
-    prepare_translation_list_update()
-    for translation in translations:
+    prepare_trans_list_update()
+    for trans in translations:
         cur.execute("UPDATE translation_stats SET available = 1 "
-                    "WHERE trans = '%s';" % translation.abbreviation)
+                    "WHERE trans = '%s';" % trans.abbreviation)
         cur.execute("INSERT INTO translation_stats "
                     "(trans, name, lang, has_ot, has_nt, has_deut, available) "
                     "SELECT '%(tran)s', '%(tname)s', '%(language)s', "
                     "%(ot)s, %(nt)s, %(deut)s, 1 WHERE NOT EXISTS "
                     "(SELECT 1 FROM translation_stats "
                     "WHERE trans = '%(tran)s');"
-                    % {"tran": translation.abbreviation,
-                       "tname": translation.name.replace("'", "''"),
-                       "language": translation.language,
-                       "ot": int(translation.has_ot),
-                       "nt": int(translation.has_nt),
-                       "deut": int(translation.has_deut)})
+                    % {"tran": trans.abbreviation,
+                       "tname": trans.name.replace("'", "''"),
+                       "language": trans.language, "ot": int(trans.has_ot),
+                       "nt": int(trans.has_nt), "deut": int(trans.has_deut)})
     _conn.commit()
 
 
-def update_user_translation(username, ot_trans, nt_trans, deut_trans):
+def update_user_trans(username, ot_trans, nt_trans, deut_trans):
     """ Updates user_translation table with new custom default translations
     specified by the user.
 
@@ -152,7 +152,7 @@ def update_user_translation(username, ot_trans, nt_trans, deut_trans):
     _conn.commit()
 
 
-def get_user_translation(username, bible_section):
+def get_user_trans(username, bible_section):
     """ Retrieves the default translation for the user in a certain section
     of the Bible.
 
@@ -168,16 +168,16 @@ def get_user_translation(username, bible_section):
     cur.execute("SELECT %s FROM user_translations WHERE username = '%s';"
                 % (section, str(username)))
     try:
-        translation = cur.fetchone()[0]
+        trans = cur.fetchone()[0]
     except TypeError:
-        translation = None
+        trans = None
     cur.execute("UPDATE user_translations SET last_used = datetime('now') "
                 "WHERE username = '%s'" % str(username))
     _conn.commit()
-    return translation
+    return trans
 
 
-def clean_user_translations():
+def clean_user_trans():
     """ Removes user translation entries that haven't been used for 90 days
     or more to save on database space. """
 
@@ -186,7 +186,7 @@ def clean_user_translations():
     _conn.commit()
 
 
-def update_subreddit_translation(subreddit, ot_trans, nt_trans, deut_trans):
+def update_subreddit_trans(subreddit, ot_trans, nt_trans, deut_trans):
     """ Updates subreddit_translation table with new custom default
     translations specified by a moderator of a subreddit.
 
@@ -205,7 +205,7 @@ def update_subreddit_translation(subreddit, ot_trans, nt_trans, deut_trans):
     _conn.commit()
 
 
-def get_subreddit_translation(subreddit, bible_section):
+def get_subreddit_trans(subreddit, bible_section):
     """ Retrieves the default translation for the subreddit in a certain
     section of the Bible.
 
@@ -227,7 +227,7 @@ def get_subreddit_translation(subreddit, bible_section):
         return None
 
 
-def is_valid_translation(translation, testament):
+def is_valid_trans(trans, testament):
     """ Checks the translations table for the supplied translation, and
     determines whether it is valid for the book that the user wants to quote.
     If the translation is not valid (either it is not available, or it doesn't
@@ -235,7 +235,7 @@ def is_valid_translation(translation, testament):
     default or the global default.
 
     :param testament: Old Testament, New Testament, or Deuterocanon
-    :param translation: Requested translation
+    :param trans: Requested translation
     """
     if testament == "Old Testament":
         testament = "has_ot"
@@ -244,7 +244,7 @@ def is_valid_translation(translation, testament):
     else:
         testament = "has_deut"
     cur.execute("SELECT %s, available FROM translation_stats "
-                "WHERE trans = '%s';" % (testament, translation))
+                "WHERE trans = '%s';" % (testament, trans))
     try:
         in_testament, is_available = cur.fetchone()
         if in_testament and bool(is_available):
@@ -301,34 +301,34 @@ def update_db_stats(verse_list):
             subreddits[subreddit] = 1
 
     update_book_stats(books)
-    update_translation_stats(translations)
+    update_trans_stats(translations)
     update_subreddit_stats(subreddits)
 
 
-def remove_invalid_statistics(message, subreddit):
+def remove_invalid_stats(msg, subreddit):
     """ Performs necessary database operations to fix invalid statistics after
     a user has requested a comment to be edited or deleted.
 
     :param subreddit: Subreddit where the quotation is located
-    :param message: Message containing verse quotations
+    :param msg: Message containing verse quotations
     """
-    invalid_verses = find_already_quoted_verses(message)
+    invalid_verses = find_already_quoted_verses(msg)
     invalid_books = dict()
     invalid_trans = dict()
     invalid_sub = dict()
 
     for verse in invalid_verses:
         book = verse[0].rstrip()
-        translation = verse[1]
+        trans = verse[1]
         if book in invalid_books:
             invalid_books[book] += 1
         else:
             invalid_books[book] = 1
 
-        if translation in invalid_trans:
-            invalid_trans[translation] += 1
+        if trans in invalid_trans:
+            invalid_trans[trans] += 1
         else:
-            invalid_trans[translation] = 1
+            invalid_trans[trans] = 1
 
         if subreddit in invalid_sub:
             invalid_sub[subreddit] += 1
@@ -336,5 +336,5 @@ def remove_invalid_statistics(message, subreddit):
             invalid_sub[subreddit] = 1
 
     update_book_stats(invalid_books, is_edit_or_delete=True)
-    update_translation_stats(invalid_trans, is_edit_or_delete=True)
+    update_trans_stats(invalid_trans, is_edit_or_delete=True)
     update_subreddit_stats(invalid_sub, is_edit_or_delete=True)

@@ -1,15 +1,20 @@
 """
-VerseBot for reddit
+VerseBot for Reddit
 By Matthieu Grieger
+Continued By Team VerseBot
 translation.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
-class Translation:
-    """ A Translation class that holds various properties regarding a specific translation. """
 
-    def __init__(self, name, abbreviation, language, has_ot=True, has_nt=True, has_deut=False):
+class Translation:
+    """ A Translation class that holds various properties regarding a
+    specific translation. """
+
+    def __init__(self, name, abbreviation, language, has_ot=True, has_nt=True,
+                 has_deut=False):
         """ Initializes a Translation object. """
+
         self.name = name
         self.abbreviation = abbreviation
         self.language = language

@@ -1,15 +1,17 @@
 """
-VerseBot for reddit
+VerseBot for Reddit
 By Matthieu Grieger
+Continued By Team VerseBot
 unhandled.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
 import logging
-import traceback
 import pprint
-from io import StringIO
 import sys
+import traceback
+from io import StringIO
+
 from config import *
 
 slackon = False
@@ -23,6 +25,7 @@ def start():
     global slackon
     global slackbot
     global slackchannel
+
     # Send a message to your Slack channel
     # TODO: Support more channels like Telegram or e-mail
     try:
@@ -53,14 +56,17 @@ def send_message():
 
 
 def unhandledexception(exctype, excvalue, tracebackobj):
-    """
-    @param exctype exception type
-    @param excvalue exception value
-    @param tracebackobj traceback object
+    """ Unhandled exception hook.
+
+    :param tracebackobj: Traceback object
+    :param excvalue: Exception value
+    :param exctype: Exception type
     """
     tracebackinfo = StringIO()
+
     # Print the traceback
     traceback.print_tb(tracebackobj, None, tracebackinfo)
+
     # Print all the variables when the exception happened
     print("\nAll defined variables when the exception happened:\n",
           file=tracebackinfo)
