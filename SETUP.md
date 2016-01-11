@@ -13,6 +13,7 @@ VerseBot Setup
 
 ### Optional ###
 * [pyenv](https://github.com/yyuu/pyenv) -- Really helpful tool for managing separate python versions and virtual environments.
+* [Slacky](https://github.com/nabetama/slacky/) -- A Python package for Slack's JSON REST API. Used for sending messages to your slack channel when your instance of Versebot is down because an unhandled exception. Create a bot for [your Slack](https://my.slack.com/services/new/bot) and set the environment variable `SLACK_API` with the bot's API token. Set `SLACK_CHANNEL`, otherwise messages will be sent to `#general` channel.
 
 ## Setup ##
 1. Clone the VerseBot repository via `git`.

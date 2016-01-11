@@ -1,12 +1,15 @@
 """
-VerseBot for reddit
+VerseBot for Reddit
 By Matthieu Grieger
+Continued by Team VerseBot
 verse.py
 Copyright (c) 2015 Matthieu Grieger (MIT License)
 """
 
-import database
 import books
+import database
+import webparser
+
 
 class Verse:
     """ Class that holds the properties and methods of a Verse object. """
@@ -14,6 +17,7 @@ class Verse:
     def __init__(self, book, chapter, translation, user, subreddit, verse):
         """ Initializes a Verse object with book, chapter, verse (if
         exists), and translation (if exists). """
+
         self.book = book
         self.subreddit = subreddit.lower()
         book_num = books.get_book_number(self.book)
@@ -45,7 +49,7 @@ class Verse:
             self.end_verse = 0
         if translation != "":
             trans = translation.upper().replace(" ", "")
-            if database.is_valid_translation(trans, self.bible_section):
+            if database.is_valid_trans(trans, self.bible_section):
                 self.translation = trans
             else:
                 self.determine_translation(user, subreddit)
@@ -57,13 +61,19 @@ class Verse:
         self.permalink = ""
 
     def determine_translation(self, user, subreddit):
-        """ Determines which translation should be used when either the user does not provide
-        a translation, or when the user provides an invalid translation. """
-        user_default = database.get_user_translation(user, self.bible_section)
+        """ Determines which translation should be used when either the user
+        does not provide a translation, or when the user provides an invalid
+        translation.
+
+        :param subreddit: The subreddit where the quotation is located
+        :param user: The user that called VerseBot for a quotation
+        """
+        user_default = database.get_user_trans(user, self.bible_section)
         if user_default:
             self.translation = user_default
         else:
-            subreddit_default = database.get_subreddit_translation(subreddit, self.bible_section)
+            subreddit_default = database.get_subreddit_trans(
+                subreddit, self.bible_section)
             if subreddit_default:
                 self.translation = subreddit_default
             else:
@@ -74,6 +84,8 @@ class Verse:
                 else:
                     self.translation = "NRSV"
 
-    def get_contents(self, parser):
+    def get_contents(self):
         """ Retrieves the contents of a Verse object. """
-        self.contents, self.translation_title, self.permalink = parser.get_web_contents(self)
+
+        self.contents, self.translation_title, self.permalink = \
+            webparser.get_web_contents(self)

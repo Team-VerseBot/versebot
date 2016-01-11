@@ -5,7 +5,12 @@
   Copyright (c) 2015 Matthieu Grieger (MIT License)
 */
 
-CREATE TABLE book_stats (id SERIAL PRIMARY KEY, book TEXT, count INTEGER DEFAULT 0, last_used TIMESTAMP WITH TIME ZONE DEFAULT NULL);
+CREATE TABLE book_stats (
+    id INTEGER PRIMARY KEY,
+    book TEXT,
+    t_count INTEGER DEFAULT 0,
+    last_used DATETIME DEFAULT NULL
+);
 
 INSERT INTO book_stats (book) VALUES
 	('Genesis'),
@@ -91,6 +96,9 @@ INSERT INTO book_stats (book) VALUES
 	('Susanna'),
 	('Bel and the Dragon');
 
-CREATE TRIGGER update_book_stats_timestamp BEFORE UPDATE
-  ON book_stats FOR EACH ROW EXECUTE PROCEDURE
-  update_timestamp_column();
+CREATE TRIGGER update_book_stats_timestamp
+AFTER UPDATE OF t_count ON book_stats
+    BEGIN
+        UPDATE book_stats
+        SET last_used = datetime('now') WHERE id = NEW.id;
+    END;
