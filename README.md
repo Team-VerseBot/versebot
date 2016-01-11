@@ -36,7 +36,7 @@ Translation defaults are prioritized in the following order:
 
 3) VerseBot Translation
 
-Default translations can be set by visiting the [Default Translations section](http://matthieugrieger/versebot/#defaults) of the VerseBot website.
+Default translations can be set by visiting the [Default Translations section](http://adamgrieger/versebot/#defaults) of the VerseBot website.
 
 There are two types of default translations that can be set:
 
