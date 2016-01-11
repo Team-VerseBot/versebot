@@ -1,5 +1,12 @@
 # VerseBot Changelog
 
+### January 10, 2016
+* Migrated from PostgreSQL to SQLite
+* Unhandled exception handling and Slack integration (implemented by [@shackra](https://github.com/shackra))
+* Fixed delete and edit requests
+* More PEP8 formatting and tidying up
+* Changed links to VerseBot website and GitHub repository
+
 ### September 23, 2015
 * Migrated to OAuth2 for authentication.
 * Fixed a crash that was caused by a missing ending verse.
