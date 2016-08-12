@@ -70,19 +70,22 @@ class VerseBot:
 
         self.log.info("Beginning to scan for new inbox messages...")
         while True:
-            messages = self.r.get_unread()
-            for msg in messages:
-                if msg.subject == "username mention":
-                    self.respond_to_username_mention(msg)
-                elif msg.subject == "edit request":
-                    self.respond_to_edit_request(msg)
-                elif msg.subject == "delete request":
-                    self.respond_to_delete_request(msg)
-                elif msg.subject == "user translation default request":
-                    self.respond_to_user_trans_request(msg)
-                elif msg.subject == "subreddit translation default request":
-                    self.respond_to_subreddit_trans_request(msg)
-                msg.mark_as_read()
+            try:
+                messages = self.r.get_unread()
+                for msg in messages:
+                    if msg.subject == "username mention":
+                        self.respond_to_username_mention(msg)
+                    elif msg.subject == "edit request":
+                        self.respond_to_edit_request(msg)
+                    elif msg.subject == "delete request":
+                        self.respond_to_delete_request(msg)
+                    elif msg.subject == "user translation default request":
+                        self.respond_to_user_trans_request(msg)
+                    elif msg.subject == "subreddit translation default request":
+                        self.respond_to_subreddit_trans_request(msg)
+                    msg.mark_as_read()
+            except:
+                pass
             sleep(30)
 
     def respond_to_username_mention(self, msg):
